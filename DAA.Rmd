@@ -1,0 +1,109 @@
+---
+title: "FUT2daa"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## DAA
+Perform differential abundance analysis on the FUT2 microbiome data
+
+### Analyses to perform:
+1. Comparison of the microbial composition between secretors and non-secretors at timepoint 1.
+2. Comparison of the microbial composition between secretors and non-secretors at timepoint 2.
+3. Comparison of the microbial composition between the LD- secretors and the LD- non-secretors (timepoint 1).
+3. Comparison of the microbial composition between the LD- secretors and the LD- non-secretors (aggregate model - take the lowest LD sample for each pregnancy [between timepoint 1 and 2]).
+
+```{r}
+library(ggplot2)
+library(ALDEx2)
+t1asv <- read.csv("T1CountsDAA.csv", header=T, row.names=1)
+t1conds <- c(rep("NSec",77), rep("Sec",210))
+t2asv <- read.csv("T2CountsDAA.csv", header=T, row.names=1)
+t2conds <- c(rep("NSec",75), rep("Sec",206))
+t1.aldex <- aldex.clr(t1asv, t1conds, mc.samples=1000, verbose=T)
+t1.aldex.tt <- aldex.ttest(t1.aldex, paired.test=F, verbose=T)
+t1.aldex.effect <- aldex.effect(t1.aldex, verbose=F)
+t1.all <- data.frame(t1.aldex.tt, t1.aldex.effect, stringsAsFactors = F)
+t2.aldex <- aldex.clr(t2asv, t2conds, mc.samples=1000, verbose=T)
+t2.aldex.tt <- aldex.ttest(t2.aldex, paired.test=F, verbose=T)
+t2.aldex.effect <- aldex.effect(t2.aldex, verbose=F)
+t2.all <- data.frame(t2.aldex.tt, t2.aldex.effect, stringsAsFactors = F)
+```
+
+### Comparison of secretors and non-secretors at Timepoint 1
+No individual organisms are significantly differentially abundant though the effect sizes indicate that the most differences occur with respect to Lactobacillus iners (slightly enriched in the non-secretors).
+
+Plot as horizontal barplot in order of effect size
+
+```{r}
+par(mfrow=c(1,2))
+aldex.plot(t1.all, type="MA", test="welch")
+aldex.plot(t1.all, type="MW", test="welch")
+t1.all$spp <- with(t1.all, reorder(rownames(t1.all), effect))
+#t1.all.order <- t1.all[order(t1.all$effect),]
+t1.all[["sign"]] = ifelse(t1.all[["effect"]] >= 0, "secretor", "non-secretor")
+par(mfrow=c(1,1))
+t1.effect.plot <- ggplot(t1.all, aes(x=spp, y=effect, fill=sign))+geom_bar(stat="identity", width=0.5)+coord_flip()+theme_classic()+scale_fill_discrete(name="Enriched")
+t1.effect.plot
+```
+
+### Comparison of secretors and non-secretors at Timepoint 2
+The timepoint 2 pregnancies show a similar profile with respect to an increase in the amount of L.iners in the non-secretors.
+
+```{r}
+par(mfrow=c(1,2))
+aldex.plot(t2.all, type="MA", test="welch")
+aldex.plot(t2.all, type="MW", test="welch")
+t2.all$spp <- with(t2.all, reorder(rownames(t2.all), effect))
+t2.all[["sign"]] = ifelse(t2.all[["effect"]] >= 0, "secretor", "non-secretor")
+par(mfrow=c(1,1))
+t2.effect.plot <- ggplot(t2.all, aes(x=spp, y=effect, fill=sign))+geom_bar(stat="identity", width=0.5)+coord_flip()+theme_classic()+scale_fill_discrete(name="Enriched")
+t2.effect.plot
+```
+
+### Comparison of Lactobacillus depleted secretors and non-secretors at timepoint 1
+
+```{r}
+t1asvDEP <- read.csv("T1CountsDAALDep.csv", header=T, row.names=1)
+t1condsDEP <- c(rep("NSec",15), rep("Sec",47))
+t2asvDEP <- read.csv("T2CountsDAALDep.csv", header=T, row.names=1)
+t2condsDEP <- c(rep("NSec",13), rep("Sec",40))
+t1DEP.aldex <- aldex.clr(t1asvDEP, t1condsDEP, mc.samples=1000, verbose=T)
+t1DEP.aldex.tt <- aldex.ttest(t1DEP.aldex, paired.test=F, verbose=T)
+t1DEP.aldex.effect <- aldex.effect(t1DEP.aldex, verbose=F)
+t1DEP.all <- data.frame(t1DEP.aldex.tt, t1DEP.aldex.effect, stringsAsFactors = F)
+t2DEP.aldex <- aldex.clr(t2asvDEP, t2condsDEP, mc.samples=1000, verbose=T)
+t2DEP.aldex.tt <- aldex.ttest(t2DEP.aldex, paired.test=F, verbose=T)
+t2DEP.aldex.effect <- aldex.effect(t2DEP.aldex, verbose=F)
+t2DEP.all <- data.frame(t2DEP.aldex.tt, t2DEP.aldex.effect, stringsAsFactors = F)
+```
+
+###Plots at timepoint 1
+
+```{r}
+par(mfrow=c(1,2))
+aldex.plot(t1DEP.all, type="MA", test="welch")
+aldex.plot(t1DEP.all, type="MW", test="welch")
+t1DEP.all$spp <- with(t1DEP.all, reorder(rownames(t1DEP.all), effect))
+t1DEP.all[["sign"]] = ifelse(t1DEP.all[["effect"]] >= 0, "secretor", "non-secretor")
+par(mfrow=c(1,1))
+t1DEP.effect.plot <- ggplot(t1DEP.all, aes(x=spp, y=effect, fill=sign))+geom_bar(stat="identity", width=0.5)+coord_flip()+theme_classic()+scale_fill_discrete(name="Enriched")
+t1DEP.effect.plot
+```
+
+###Plots at timepoint 2
+
+```{r}
+par(mfrow=c(1,2))
+aldex.plot(t2DEP.all, type="MA", test="welch")
+aldex.plot(t2DEP.all, type="MW", test="welch")
+t2DEP.all$spp <- with(t2DEP.all, reorder(rownames(t2DEP.all), effect))
+t2DEP.all[["sign"]] = ifelse(t2DEP.all[["effect"]] >= 0, "secretor", "non-secretor")
+par(mfrow=c(1,1))
+t2DEP.effect.plot <- ggplot(t2DEP.all, aes(x=spp, y=effect, fill=sign))+geom_bar(stat="identity", width=0.5)+coord_flip()+theme_classic()+scale_fill_discrete(name="Enriched")
+t2DEP.effect.plot
+```
+
