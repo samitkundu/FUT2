@@ -1,0 +1,74 @@
+Pre---
+title: "NetworkAnalysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+Create network for the FUT2 microbiome data using the Banocc package
+
+```{r}
+library(banocc)
+library(igraph)
+library(qgraph)
+setwd("~/Documents/DataAnalysis/FUT2/NetworkAnalyses")
+sec_dat <- read.csv("T1SppPropSec.csv", header=T, row.names = 1)
+sec_mat <- as.matrix(t(sec_dat))
+compiled_banocc_model <- rstan::stan_model(model_code = banocc::banocc_model)
+sec_fit <- banocc::run_banocc(C = sec_mat, compiled_banocc_model=compiled_banocc_model, chains = 4, cores=4, verbose = T, iter = 10000)
+rstan::traceplot(sec_fit$Fit, pars=paste0("O[1,", 2:9, "]"))
+sec_out <- get_banocc_output(banoccfit = sec_fit, conf_alpha = 0.05)
+res <- sec_out$Estimates.median
+nsec_dat_red <- read.csv("T1SppPropNSecRed.csv", header=T, row.names = 1)
+nsec_mat_red <- as.matrix(t(nsec_dat_red))
+nsec_fit_red <- banocc::run_banocc(C = nsec_mat_red, compiled_banocc_model=compiled_banocc_model, chains = 4, cores=4, verbose = T, iter = 10000)
+nsec_red_out <- get_banocc_output(banoccfit = nsec_fit_red, conf_alpha = 0.05)
+nsec_red_res <- nsec_red_out$Estimates.median
+write.csv(sec_red_res, file = "T1SecAdjMatBanoccRed.csv")
+write.csv(nsec_red_res, file = "T1NSecAdjMatBanoccRed.csv")
+```
+
+## Use qgraph and igraph for plotting and network statistics
+
+```{r}
+nsec_dat <- read.csv("T1NSecAdjMatBanoccRed.csv", header=T, row.names = 1)
+nsec_mat <- as.matrix(nsec_dat)
+groups <- list(Lcrispatus=29, Lgasseri=30, Liners=31, Ljensenii=32, Lactobacillus=c(28,33,34,35,36), BV=c(1,2,4,5,6,7,8,16,17,19,22,24,25,26,27,37,38,39,40,41,42,43,44,45,47,48,51,54,56,57,58), Pathobiont=c(20,21,46,49,50,53), Other=c(3,9,10,11,12,13,14,15,18,23,52,55))
+qgraph(nsec_mat, layout="spring", vsize=2, border.width=1, groups=groups, color=c("#ff7f00","#e41a1c","#4daf4a","#984ea3","#377eb8","#ffff33","#a65628","#666666"),labels=F)
+sec_dat <- read.csv("T1SecAdjMatBanoccRed.csv", header=T, row.names = 1)
+sec_mat <- as.matrix(sec_dat)
+groups2 <- list(Lcrispatus=34,Lgasseri=37,Liners=39,Ljensenii=40,Lactobacillus=c(33,35,36,38,41,42,43,44,45,46),BV=c(1,2,4,5,6,7,8,9,17,18,20,23,25,26,27,28,29,30,47,48,49,50,51,52,53,54,55,56,57,58,59,60,62,65,69,71,73,75,76,77,78,79),Pathobiont=c(21,22,31,32,61,63,64,66,67,68,72),Other=c(3,10,11,12,13,14,15,16,19,24,70,74))
+qgraph(sec_mat, layout="spring", vsize=2, border.width=1, groups=groups2, color=c("#ff7f00","#e41a1c","#4daf4a","#984ea3","#377eb8","#ffff33","#a65628","#666666"),labels=F)
+centralityPlot(nsec_mat, include = c("Strength", "ExpectedInfluence","Closeness"), orderBy = "ExpectedInfluence")
+centralityPlot(sec_mat, include = c("Strength", "ExpectedInfluence","Closeness"), orderBy = "ExpectedInfluence")
+nsec_cent <- centrality_auto(nsec_mat)
+nsec_cent_df <- as.data.frame(nsec_cent$node.centrality)
+sec_cent <- centrality_auto(sec_mat)
+sec_cent_df <- as.data.frame(sec_cent$node.centrality)
+ggplot()+geom_histogram(data=sec_cent_df, aes(x=ExpectedInfluence), fill="cyan", alpha=0.3) + geom_histogram(data=nsec_cent_df, aes(x=ExpectedInfluence), fill="red", alpha=0.3)+scale_fill_discrete()+theme_ipsum()+scale_x_continuous(name="Expected Influence")
+sec_qgrp <- qgraph(sec_mat, layout="spring", vsize=4, border.width=1, groups=groups2, color=c("#ff7f00","#e41a1c","#4daf4a","#984ea3","#377eb8","#ffff33","#a65628","#666666"),labels=T)
+nsec_qgrp <- qgraph(nsec_mat, layout="spring", vsize=4, border.width=1, groups=groups, color=c("#ff7f00","#e41a1c","#4daf4a","#984ea3","#377eb8","#ffff33","#a65628","#666666"),labels=T)
+
+```
+
+##Flow diagrams
+These re-center the network on specific nodes and are useful for highlighting the distribution of edges.
+
+```{r}
+par(mfrow=c(2,1))
+#flow diagrams for L.crispatus
+flow(sec_qgrp, 34, vsize=3)
+flow(nsec_qgrp, 29, vsize=3)
+#flow diagram for L.gasseri
+flow(sec_qgrp, 37, vsize=3)
+flow(nsec_qgrp, 30, vsize=3)
+#flow diagram for L.iners
+flow(sec_qgrp, 39, vsize=3)
+flow(nsec_qgrp, 31, vsize=3)
+#flow diagram for L.jensenii
+flow(sec_qgrp, 40, vsize=3)
+flow(nsec_qgrp, 32, vsize=3)
+```
