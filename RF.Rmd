@@ -1,0 +1,139 @@
+---
+title: "RFanalyses"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Random Forest analyses of FUT2 associated microbiome data
+Comparison of the microbial composition between:
+1. Secretors and non-secretors (early and mid-pregnancy)
+2. LD- secretors and LD- non-secretors (early pregnancy)
+3. Non-secretor PTB and term (early pregnancy)
+
+### Steps required
+1. Generate a mapping file for each of the above comparisons:
+a) Samples Id (PREM) mapped to secretor status (early)
+b) As above but mid
+c) Samples ID (PREM) mapped to secretor status for LD- samples in early pregnancy
+d) Samples ID (PREM) mapped to term and PTB (for just the non-secretors)
+e) Generate a CLR transformed count table for the entire dataset
+e) Use the sample list in each of the above tables to generate CLR-transformed ASV count tables for each of the comparisons (use Python Pandas to create the CLR transformed count files for each analysis).
+
+```{r}
+library(zCompositions)
+allsp <- read.csv("allspcounts.csv", header=T, row.names = 1)
+allsp.czm <- cmultRepl(t(allsp), label=0, method = "CZM")
+allsp.clr <- t(apply(allsp.czm, 1, function(x){log(x)-mean(log(x))}))
+fin.allsp.clr <- t(allsp.clr)
+write.csv(fin.allsp.clr, file="AllSpCLRCounts.csv")
+```
+
+###RF comparison of microbiome in LD- non-secretors versus LD- secretors
+Note: set ntree paramter to something higher, e.g., 10001, for a more robust trees. Also include a permutation test to test for significance.
+TODO: plot the barplot in GGplot rather than in base graphics.
+
+```{r}
+library(plyr)#for the arrange function
+library(randomForest)#for the random forest classification and regression
+library(rfUtilities)#for the permutation test of significance
+t1dep_meta <- read.csv("T1CLRLDepSecSt_meta.csv", header=T, row.names = 1)
+t1dep_meta$fSec <- as.factor(t1dep_meta$SecretorStatus)
+t1dep_asv <- read.csv("T1CLRLDepSecSt_counts.csv", header=T, row.names = 1)
+colnames(t1dep_asv)==rownames(t1dep_meta)
+asv_table_scaled_state <- data.frame(t(t1dep_asv))
+asv_table_scaled_state$state <- t1dep_meta[rownames(asv_table_scaled_state), "fSec"]
+set.seed(151)
+RF_state_classify <- randomForest(x=asv_table_scaled_state[,1:(ncol(asv_table_scaled_state)-1)] , y=asv_table_scaled_state[ , ncol(asv_table_scaled_state)] , ntree=10001, importance=TRUE, proximities=TRUE)
+RF_state_classify_sig <- rf.significance( x=RF_state_classify ,  xdata=asv_table_scaled_state[,1:(ncol(asv_table_scaled_state)-1)] , nperm=1000 , ntree=10001)#check for significance
+RF_state_classify
+RF_state_classify_imp <- as.data.frame( RF_state_classify$importance )
+RF_state_classify_imp$features <- rownames( RF_state_classify_imp )
+RF_state_classify_imp_sorted <- arrange( RF_state_classify_imp  , desc(MeanDecreaseAccuracy))
+barplot(RF_state_classify_imp_sorted$MeanDecreaseAccuracy, ylab="Mean Decrease in Accuracy (Variable Importance)", main="RF Classification Variable Importance Distribution")
+barplot(RF_state_classify_imp_sorted[1:10,"MeanDecreaseAccuracy"], names.arg=RF_state_classify_imp_sorted[1:10,"features"] , ylab="Mean Decrease in Accuracy (Variable Importance)", las=2, ylim=c(0,0.02), main="Classification RF")
+```
+
+###RF comparison of microbiome composition between term and PTB non-secretors in Early pregnancy
+As above, set ntree to 10001 for more robust trees
+
+```{r}
+t1gest_asv <- read.csv("T1NSecGest_counts.csv", header=T, row.names = 1)
+t1gest_meta <- read.csv("T1NSecGest_meta.csv", header=T, row.names = 1)
+t1gest_meta$fOut <- as.factor(t1gest_meta$Outcome)
+colnames(t1gest_asv)==rownames(t1gest_meta)
+asv_table_out <- data.frame(t(t1gest_asv))
+asv_table_out$out <- t1gest_meta[rownames(asv_table_out), "fOut"]
+set.seed(171)
+RF_out_classify <- randomForest(x=asv_table_out[,1:(ncol(asv_table_out)-1)] , y=asv_table_out[ , ncol(asv_table_out)] , ntree=10001, importance=TRUE, proximities=TRUE)
+RF_out_classify_sig <- rf.significance( x=RF_state_classify ,  xdata=asv_table_scaled_state[,1:(ncol(asv_table_scaled_state)-1)] , nperm=1000 , ntree=10001)
+RF_out_classify
+RF_out_classify_imp <- as.data.frame( RF_out_classify$importance )
+RF_out_classify_imp$features <- rownames( RF_out_classify_imp )
+RF_out_classify_imp_sorted <- arrange( RF_out_classify_imp  , desc(MeanDecreaseAccuracy))
+barplot(RF_out_classify_imp_sorted$MeanDecreaseAccuracy, ylab="Mean Decrease in Accuracy (Variable Importance)", main="RF Classification Variable Importance Distribution")
+barplot(RF_out_classify_imp_sorted[1:10,"MeanDecreaseAccuracy"], names.arg=RF_out_classify_imp_sorted[1:10,"features"] , ylab="Mean Decrease in Accuracy (Variable Importance)", las=2, ylim=c(0,0.02), main="Classification RF")
+```
+
+The above RF indicates little signal for separating the non-secretors that delivered term from those that deliver perterm (+/- 37 weeks).
+
+###RF regression of gestational age on ASVs
+
+```{r}
+asv_table_gest <- data.frame(t(t1gest_asv))
+asv_table_gest$gest <- t1gest_meta[rownames(asv_table_gest), "Gestational.age"]
+set.seed(161)
+RF_gest_regress <- randomForest( x=asv_table_gest[,1:(ncol(asv_table_gest)-1)] , y=asv_table_gest[ , ncol(asv_table_gest)] , ntree=10001, importance=TRUE, proximities=TRUE )
+RF_gest_regress
+RF_gest_regress_sig <- rf.significance( x=RF_state_classify ,  xdata=asv_table_scaled_state[,1:(ncol(asv_table_scaled_state)-1)] , nperm=1000 , ntree=10001 )
+RF_gest_regress_imp <- as.data.frame( RF_gest_regress$importance )
+RF_gest_regress_imp$features <- rownames( RF_gest_regress_imp )
+RF_gest_regress_imp_sorted <- arrange( RF_gest_regress_imp  , desc(`%IncMSE`)  )
+barplot(RF_gest_regress_imp_sorted$`%IncMSE`, ylab="% Increase in Mean Squared Error (Variable Importance)", main="RF Regression Variable Importance Distribution")
+barplot(RF_gest_regress_imp_sorted[1:10,"%IncMSE"], names.arg=RF_gest_regress_imp_sorted[1:10,"features"] , ylab="% Increase in Mean Squared Error (Variable Importance)", las=2, ylim=c(0,0.7), main="Regression RF")
+```
+
+###RF comparison of microbiome between secretors and non-secretors
+####Timepoint 1 (early pregnancy)
+
+```{r}
+setwd("~/Dropbox/FUT2/Analysis/New analyses/FinalCountFiles/RFAnalyses/NsecVSSec")
+t1_allsp_asv <- read.csv("T1CLRCounts.csv", header=T, row.names = 1)
+t1_allsp_meta <- read.csv("T1RFSecSt_meta.csv", header=T, row.names = 1)
+t1_allsp_meta$fSec <- as.factor(t1_allsp_meta$SecretorStatus)
+colnames(t1_allsp_asv)==rownames(t1_allsp_meta)
+t1_allsp_table_sec <- data.frame(t(t1_allsp_asv))
+t1_allsp_table_sec$Sec <- t1_allsp_meta[rownames(t1_allsp_table_sec), "Sec"]
+set.seed(151)
+RF_secT1_classify <- randomForest( x=t1_allsp_table_sec[,1:(ncol(t1_allsp_table_sec)-1)] , y=t1_allsp_table_sec[ , ncol(t1_allsp_table_sec)] , ntree=10001, importance=TRUE, proximities=TRUE)
+RF_secT1_classify_sig <- rf.significance(x=RF_secT1_classify,  xdata=t1_allsp_table_sec[,1:(ncol(t1_allsp_table_sec)-1)] , nperm=1000 , ntree=10001)#check for significance
+RF_secT1_classify
+RF_secT1_classify_imp <- as.data.frame(RF_secT1_classify$importance)
+RF_secT1_classify_imp$features <- rownames( RF_secT1_classify_imp )
+RF_secT1_classify_imp_sorted <- arrange( RF_secT1_classify_imp  , desc(`%IncMSE`))
+barplot(RF_secT1_classify_imp_sorted$`%IncMSE`, ylab="% Increase in Mean Squared Error (Variable Importance)", main="RF Regression Variable Importance Distribution")
+barplot(RF_secT1_classify_imp_sorted[1:10,"MeanDecreaseAccuracy"], names.arg=RF_secT1_classify_imp_sorted[1:10,"features"] , ylab="Mean Decrease in Accuracy (Variable Importance)", las=2, ylim=c(0,0.02), main="Classification RF")
+```
+
+####Timepoint 2 (mid-pregnancy)
+
+```{r}
+t2_allsp_asv <- read.csv("T2CLRCounts.csv", header=T, row.names = 1)
+t2_allsp_meta <- read.csv("T2RFSecSt_meta.csv", header=T, row.names = 1)
+t2_allsp_meta$fSec <- as.factor(t2_allsp_meta$SecretorStatus)
+colnames(t2_allsp_asv)==rownames(t2_allsp_meta)
+t2_allsp_table_sec <- data.frame(t(t2_allsp_asv))
+t2_allsp_table_sec$Sec <- t2_allsp_meta[rownames(t2_allsp_table_sec), "Sec"]
+set.seed(151)
+RF_secT2_classify <- randomForest(x=t2_allsp_table_sec[,1:(ncol(t2_allsp_table_sec)-1)] , y=t2_allsp_table_sec[ , ncol(t2_allsp_table_sec)] , ntree=10001, importance=TRUE, proximities=TRUE)
+RF_secT2_classify_sig <- rf.significance(x=RF_secT2_classify ,  xdata=t2_allsp_table_sec[,1:(ncol(t2_allsp_table_sec)-1)] , nperm=1000 , ntree=10001 )#check for significance
+RF_secT2_classify
+RF_secT2_classify_imp <- as.data.frame( RF_secT2_classify$importance )
+RF_secT2_classify_imp$features <- rownames(RF_secT2_classify_imp )
+RF_secT2_classify_imp_sorted <- arrange(RF_secT2_classify_imp  , desc(`%IncMSE`))
+barplot(RF_secT2_classify_imp_sorted$`%IncMSE`, ylab="% Increase in Mean Squared Error (Variable Importance)", main="RF Regression Variable Importance Distribution")
+barplot(RF_secT2_classify_imp_sorted[1:10,"MeanDecreaseAccuracy"], names.arg=RF_secT2_classify_imp_sorted[1:10,"features"] , ylab="Mean Decrease in Accuracy (Variable Importance)", las=2, ylim=c(0,0.02), main="Classification RF")
+```
+
