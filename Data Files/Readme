@@ -1,0 +1,3 @@
+This folder contains all of the microbiome data (mapped to the Stirrups database) used to carry out the secretor vaginal microbiome project
+Each excel file represents a different timepoint: early, mid and late pregnancy.
+Each excel file contains three datasheets: a sample sheet, a taxonomy table mapping ASVs to microbial lineages and an ASV table.
