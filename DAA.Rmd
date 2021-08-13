@@ -8,7 +8,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## DAA
-Perform differential abundance analysis on the FUT2 microbiome data
+Perform differential abundance analysis on the FUT2 microbiome data.
+The analysis will be done on the first two timepoints only (Early and Mid) as by the third timepoint many of the patients have delivered).
 
 ### Analyses to perform:
 1. Comparison of the microbial composition between secretors and non-secretors at timepoint 1.
@@ -19,6 +20,7 @@ Perform differential abundance analysis on the FUT2 microbiome data
 ```{r}
 library(ggplot2)
 library(ALDEx2)
+#import microbial species counts and assign secretor status to the samples
 t1asv <- read.csv("T1CountsDAA.csv", header=T, row.names=1)
 t1conds <- c(rep("NSec",77), rep("Sec",210))
 t2asv <- read.csv("T2CountsDAA.csv", header=T, row.names=1)
@@ -33,8 +35,8 @@ t2.aldex.effect <- aldex.effect(t2.aldex, verbose=F)
 t2.all <- data.frame(t2.aldex.tt, t2.aldex.effect, stringsAsFactors = F)
 ```
 
-### Comparison of secretors and non-secretors at Timepoint 1
-No individual organisms are significantly differentially abundant though the effect sizes indicate that the most differences occur with respect to Lactobacillus iners (slightly enriched in the non-secretors).
+### Comparison of secretors and non-secretors at Early pregnancy
+No individual organisms are significantly differentially abundant and the effect sizes are very small.
 
 Plot as horizontal barplot in order of effect size
 
@@ -50,7 +52,7 @@ t1.effect.plot <- ggplot(t1.all, aes(x=spp, y=effect, fill=sign))+geom_bar(stat=
 t1.effect.plot
 ```
 
-### Comparison of secretors and non-secretors at Timepoint 2
+### Comparison of secretors and non-secretors at Mid pregnancy
 The timepoint 2 pregnancies show a similar profile with respect to an increase in the amount of L.iners in the non-secretors.
 
 ```{r}
@@ -64,24 +66,7 @@ t2.effect.plot <- ggplot(t2.all, aes(x=spp, y=effect, fill=sign))+geom_bar(stat=
 t2.effect.plot
 ```
 
-### Comparison of Lactobacillus depleted secretors and non-secretors at timepoint 1
-
-```{r}
-t1asvDEP <- read.csv("T1CountsDAALDep.csv", header=T, row.names=1)
-t1condsDEP <- c(rep("NSec",15), rep("Sec",47))
-t2asvDEP <- read.csv("T2CountsDAALDep.csv", header=T, row.names=1)
-t2condsDEP <- c(rep("NSec",13), rep("Sec",40))
-t1DEP.aldex <- aldex.clr(t1asvDEP, t1condsDEP, mc.samples=1000, verbose=T)
-t1DEP.aldex.tt <- aldex.ttest(t1DEP.aldex, paired.test=F, verbose=T)
-t1DEP.aldex.effect <- aldex.effect(t1DEP.aldex, verbose=F)
-t1DEP.all <- data.frame(t1DEP.aldex.tt, t1DEP.aldex.effect, stringsAsFactors = F)
-t2DEP.aldex <- aldex.clr(t2asvDEP, t2condsDEP, mc.samples=1000, verbose=T)
-t2DEP.aldex.tt <- aldex.ttest(t2DEP.aldex, paired.test=F, verbose=T)
-t2DEP.aldex.effect <- aldex.effect(t2DEP.aldex, verbose=F)
-t2DEP.all <- data.frame(t2DEP.aldex.tt, t2DEP.aldex.effect, stringsAsFactors = F)
-```
-
-###Plots at timepoint 1
+### DAA plots in early pregnancy 
 
 ```{r}
 par(mfrow=c(1,2))
@@ -94,7 +79,7 @@ t1DEP.effect.plot <- ggplot(t1DEP.all, aes(x=spp, y=effect, fill=sign))+geom_bar
 t1DEP.effect.plot
 ```
 
-###Plots at timepoint 2
+### DAA Plots in mid pregnancy
 
 ```{r}
 par(mfrow=c(1,2))
