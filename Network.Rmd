@@ -14,7 +14,6 @@ Create network for the FUT2 microbiome data using the Banocc package
 library(banocc)
 library(igraph)
 library(qgraph)
-setwd("~/Documents/DataAnalysis/FUT2/NetworkAnalyses")
 sec_dat <- read.csv("T1SppPropSec.csv", header=T, row.names = 1)
 sec_mat <- as.matrix(t(sec_dat))
 compiled_banocc_model <- rstan::stan_model(model_code = banocc::banocc_model)
