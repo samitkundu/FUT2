@@ -17,36 +17,63 @@ Modelling (GLMM) of the secretor data/vaginal microbiome data across three timep
 
 Perform standard dummy coding regression using the GlmmTMB library to fit a random intercept model (ethnicity coded as a four level categorical variable [CSAsia, European, Afro-Caribbean and Other]) regressing gestational age (days) on the following covariates with a gamma distribution:
 
-Age (continuous)
-BMI (categorical variable with four levels: )
-Previous PTB/MTL (binary with no history coded as 0)
-Cerclage (binary with no cerclage coded as 0)
-Previous Lletz (binary with no previous Lletz coded as 0)
-Secretor status (binary with secretor coded as 0)
-Lactobacillus status (binary with Lactobacillus dominated coded as 0)
-Secretor:Lactobacillus interaction term
+Age
+BMI (fbmi):
+  0 - 18.5 to 24.99
+  1 - <18.5
+  2 - 25.0 to 29.99
+  3 - >30.0
+Previous PTB/MTL (fpbd):
+  0 - no previous PTB or MTL
+  1 - Previous PTB or MTL
+Cerclage (fstitch):
+  0 - no cerclage
+  1 - cerclage
+Previous Lletz treatment(floop):
+  0 - no previous Lletz
+  1 - previous Lletz treatment
+Ethnicity (feth):
+  1 - Central/South Asian
+  3 - European
+  5 - Afro-Caribbean
+  6 - East Asian/MENA/Mixed/Other/Unknown
+Secretor status (fsec):
+  0 - secretor
+  1 - non-secretor
+Lactobacillus status (ft1ld, ft2ld and ft3ld in early, mid and late pregnancy):
+  0 - Lactobacillus dominated
+  1 - Lactobacillus depleted
+CST (ft1cst, ft2cst and ft3cst in early, mid and late pregnancy):
+  1 - CST 1
+  2 - CST 2
+  3 - CST 3
+  4 - CST 4
+  5 - CST 5
+ABO group:
+  0 - A
+  1 - AB
+  2 - B
+  3 - O
 
-As the response variable, gestational age, is negatively skewed it will have to be reflected to use a gamma distribution ("lgest" variable).
-
-The intercept will be the mean response of the baseline case, i.e., secretor with a lactobacillus dominated microbiome, no cervical stitch, Loops excision or previous PTB/MTL with a typical BMI (18.5-25).
+We apply a reflection transformation to the gestational age variable to use a gamma distribution ("lgest" variable).
 
 Note
 1. Lactobacillus status is defined as +/-90% Lactobacillus abundance
 2. Our previous analyses (not shown here) indicate only moderate evidence of multicollinearity (VIF values are all low, <10) between some variables (Previous PTB/MTL and previous Lletz).
 
 ```{r}
-load()
+load("mod.rdata")
 library(glmmTMB)
 library(car)
 library(emmeans)
 library(DHARMa)
 #Run GLMM incoroporating Lactobacillus status at Timepoint 1 and secretor status
-glmm_t1 <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft1ld+fsec:ft1ld+(1|feth), family=Gamma(link="log"), data=fut2wf)
+glmm_t1 <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft1ld+fsec:ft1ld+(1|feth), family=Gamma(link="log"), data=mod)
 #Perform analysis of deviance using the Anova (using Anova from the car package rather than the core anova function as the former automatically takes care of unbalanced designs)
 Anova(glmm_t1)
 summary(glmm_t1)
 #Perform a simpler GLM (for comparison with the GLMM)
-glm_t1 = glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft1ld+fsec:ft1ld, family=Gamma(link="log"), data=fut2wf)
+glm_t1 = glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft1ld+fsec:ft1ld, family=Gamma(link="log"), data=mod)
 AIC(glm_t1,glmm_t1)
 simglmmT1 <- simulateResiduals(fittedModel=glmm_t1, plot=T)
 testDispersion(simglmmT1)
@@ -55,17 +82,17 @@ emm1
 contrast(emm1, method="pairwise", adjust = "none")
 ```
 
-The analysis of deviance results indicate that Previous PTB/MTL, Cerclage, Previous Lletz and the secretor status:Lactobacillus interaction terms are significant covariates. However, neither secretor staus nor Lactobacillus status are significant main terms. Residual analysis using the Dharma package indicates that the model fits well for each covariate. The coefficients indicate that the non-secretors with a Lactobacillus depleted microbiome have shorter gestational lengths (hence positive relationship with the inverted variable) compared with the baseline (women who are secretors with Lactobacillus dominated microbiomes). Women who have had a previous PTB/MTL also have shorter gestational lengths (compared with women who have not) as do women who get a cervical stitch (cerclage). Comparing the random intercept model with the GLM indicates that the latter is actually a slightly better fit (lower AIC), i.e., ethnicity does not appear to be a major factor (bias towards European women in this cohort may explain lack of signal with respect to ethnicity).
+The analysis of deviance results indicate that Previous PTB/MTL, Cerclage, Previous Lletz and the secretor status:Lactobacillus interaction terms are significant covariates. Residual analysis using the Dharma package indicates that the model fits well for each covariate. The coefficients indicate that the non-secretors with a Lactobacillus depleted microbiome have shorter gestational lengths (hence positive relationship with the inverted variable) compared with the baseline (women who are secretors with Lactobacillus dominated microbiomes). Women who have had a previous PTB/MTL also have shorter gestational lengths (compared with women who have not) as do women who get a cervical stitch (cerclage). Comparing the random intercept model with the GLM indicates that the latter is actually a slightly better fit (lower AIC), i.e., ethnicity does not appear to be a major factor (bias towards European women in this cohort may explain lack of signal with respect to ethnicity).
 
 Post hoc comparison using the emmeans package suggests that the most significant comparison is between the non-secretors with Lactobacillus depleted microbiomes and non-secretors with Lactobacillus dominant microbiomes (comparison of secretors that have Lactobacillus depleted microbiomes with non-secretors that also have Lactobacillus deplete microbiomes is close to significance).
 
 ### 2.Modelling with Lactobacillus status at Timepoint 2 ("mid" pregnancy)
 
 ```{r}
-glmm_t2 <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft2ld+fsec:ft2ld+(1|feth), family=Gamma(link="log"), data=fut2wf)
+glmm_t2 <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft2ld+fsec:ft2ld+(1|feth), family=Gamma(link="log"), data=mod)
 summary(glmm_t2)
 Anova(glmm_t2)
-glm_t2 = glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft2ld+fsec:ft2ld, family=Gamma(link="log"), data=fut2wf)
+glm_t2 = glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft2ld+fsec:ft2ld, family=Gamma(link="log"), data=mod)
 AIC(glm_t2,glmm_t2)
 simglmmT2 <- simulateResiduals(fittedModel=glmm_t2, plot=T)
 testDispersion(simglmmT2)
@@ -80,10 +107,10 @@ The analysis of deviance indicates that at Timepoint 2 in oregnancy the interact
 ### 3.Modelling timepoint 3 (late pregnancy)
 
 ```{r}
-glmm_t3 <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft3ld+fsec:ft3ld+(1|feth), family=Gamma(link="log"), data=fut2wf)
+glmm_t3 <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft3ld+fsec:ft3ld+(1|feth), family=Gamma(link="log"), data=mod)
 summary(glmm_t3)
 Anova(glmm_t3)
-glm_t3 = glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft3ld+fsec:ft3ld, family=Gamma(link="log"), data=fut2wf)
+glm_t3 = glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft3ld+fsec:ft3ld, family=Gamma(link="log"), data=mod)
 AIC(glm_t3,glmm_t3)
 simglmmT3 <- simulateResiduals(fittedModel=glmm_t3, plot=T)
 testDispersion(simglmmT3)
@@ -100,8 +127,7 @@ The analysis of deviance for the GLMM at Timepoint 3 indicates that the interact
 Repeat the first model, but this time with the CST rather than Lactobacillus status. Here L.crispatus dominated microbiome (CST 1) will act as the baseline.
 
 ```{r}
-fut2wf$ft1cst <- as.factor(fut2wf$CSTt1)
-glmm_cst <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft1cst+fsec:ft1cst+(1|feth), family=Gamma(link="log"), data=fut2wf)
+glmm_cst <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+ft1cst+fsec:ft1cst+(1|feth), family=Gamma(link="log"), data=mod)
 Anova(glmm_cst)
 summary(glmm_cst)
 simglmmcst <- simulateResiduals(fittedModel=glmm_cst, plot=T)
@@ -117,41 +143,20 @@ The conditional model highlights non-secretors with CSTs 2, 3 and 4 as having sh
 
 ##ABO status (at timepoint 1)
 
-###Modelling ABO status on gestational length (ignoring secretor status)
-
-Here the baseline ABO is blood group A (AB, B and O are coded as 1, 2 and 3 respectively).
-
-```{r}
-glmm_t1_abo <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fabo+ft1ld+fabo:ft1ld+(1|feth), family=Gamma(link="log"), data=fut2wf)
-Anova(glmm_t1_abo)
-summary(glmm_t1_abo)
-```
-
-The analysis of deviance indicates that only cervical stitch, loop excision and previous PTB/MTL are significant explanatory variables of gestational length - ABO status is not significant.
-
-###Modelling ABO status on gestational length (incorporating secretor status as a separate covariate)
+###Modelling ABO status on gestational length (including secretor status)
 
 Repeat the previous model but include secretor status as an additional fixed effect.
 
 ```{r}
-glmm_t1_all <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+fabo+ft1ld+fsec:ft1ld+(1|feth), family=Gamma(link="log"), data=fut2wf)
-Anova(glmm_t1_all)
-summary(glmm_t1_all)
+glmm_t1_abo <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+fabo+ft1ld+fsec:ft1ld+(1|feth), family=Gamma(link="log"), data=mod)
+Anova(glmm_t1_abo)
+summary(glmm_t1_abo)
+glmm_t2_abo <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+fabo+ft2ld+fsec:ft2ld+(1|feth), family=Gamma(link="log"), data=mod)
+Anova(glmm_t2_abo)
+summary(glmm_t2_abo)
+glmm_t3_abo <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsec+fabo+ft3ld+fsec:ft3ld+(1|feth), family=Gamma(link="log"), data=mod)
+Anova(glmm_t3_abo)
+summary(glmm_t3_abo)
 ```
 
 The ANOVA of the model indicates that ABO is not a significant explanatory variable of gestational length. The Secretor status:Lactobacillus interaction term is still significant.
-
-###Modelling ABO/secretor status on gestational length (secretor status as an additional level)
-
-Here the secretors and non-secretors are separated out into different levels and then the secretors are separated again but on the basis of ABO:
-
-Blood group A in the secretors is coded as 0 and is therefore the baseline (AB, B and O in the secretors are, respectively, 1, 2 and 3). The non-secretors are coded up together as 4.
-
-```{r}
-glmm_t1_secabo <- glmmTMB(lGest~Age+fbmi+fpbd+fstitch+floop+fsecabo+ft1ld+fsecabo:ft1ld+(1|feth), family=Gamma(link="log"), data=fut2wf)
-Anova(glmm_t1_secabo)
-summary(glmm_t1_secabo)
-
-```
-
-The Anova indicates that the interaction term is not statistically significant, though the conditional model reiterates that within this covariate the non-secretors that are Lactobacillus depleted do have significantly shorter gestations than the baseline (blood group A [secretors] with Lactobacillus dominated microbiota).
