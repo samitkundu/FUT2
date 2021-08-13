@@ -99,7 +99,6 @@ barplot(RF_gest_regress_imp_sorted[1:10,"%IncMSE"], names.arg=RF_gest_regress_im
 ####Timepoint 1 (early pregnancy)
 
 ```{r}
-setwd("~/Dropbox/FUT2/Analysis/New analyses/FinalCountFiles/RFAnalyses/NsecVSSec")
 t1_allsp_asv <- read.csv("T1CLRCounts.csv", header=T, row.names = 1)
 t1_allsp_meta <- read.csv("T1RFSecSt_meta.csv", header=T, row.names = 1)
 t1_allsp_meta$fSec <- as.factor(t1_allsp_meta$SecretorStatus)
