@@ -1,0 +1,2 @@
+INSERT INTO labman_result( sample_pcr_id, region_id,metrics_id,good_reads,mean_read_length) VALUES (6045_FUT2,2,NULL,397366,32856.4) ON DUPLICATE KEY UPDATE good_reads = VALUES(good_reads), mean_read_length=VALUES(mean_read_length), metrics_id = VALUES(metrics_id);
+INSERT INTO labman_result( sample_pcr_id, region_id,metrics_id,good_reads,mean_read_length) VALUES (6091_Ctyb ,1,NULL,390407,40695.2) ON DUPLICATE KEY UPDATE good_reads = VALUES(good_reads), mean_read_length=VALUES(mean_read_length), metrics_id = VALUES(metrics_id);
