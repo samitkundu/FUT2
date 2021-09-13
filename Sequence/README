@@ -1,0 +1,1 @@
+This directiry contains the sequence data from exon 2 of the FUT2 gene. The data is derived from long-read (PacBio) sequencing of PCR amplicons of exon 2. A fasta file is included that contains all of the sequences after QC/assembly/haplotype phasing.
